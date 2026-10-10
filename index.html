@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Hệ Thống Quản Lý Và Điều Khiển Máy Lạnh</title>
+
+  <!-- Google Fonts, MQTT JS & Polyfill Hỗ trợ Kéo Thả Cảm ứng -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.0/DragDropTouch.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card: #131924;
+      --card-inner: #1a2232;
+      --text: #ffffff;
+      --sub: #94a3b8;
+      --border: #2a3447;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --green: #10b981;
+      --red: #ef4444;
+      --shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    }
+
+    body.light-theme {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --card-inner: #f1f5f9;
+      --text: #0f172a;
+      --sub: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.3s, color 0.3s;
+      padding-bottom: 30px;
+    }
+
+    /* HEADER */
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    }
+
+    .header-container {
+      width: 100%;
+      max-width: 1800px;
+      margin: 0 auto;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      border-radius: 12px;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      flex-shrink: 0;
+    }
+
+    h1 { margin: 0; font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; }
+    .subtitle { color: var(--sub); font-size: 11px; }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+      outline: none;
+      user-select: none;
+      transition: background-color 0.2s, border-color 0.2s, transform 0.15s;
+      touch-action: manipulation;
+    }
+
+    button:active { transform: scale(0.96) !important; }
+
+    .header-btn {
+      border: 1px solid var(--border);
+      background: var(--card-inner);
+      color: var(--text);
+      border-radius: 99px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .badge-mqtt {
+      padding: 6px 12px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .badge-mqtt.offline {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .badge-mqtt.connecting {
+      background: rgba(249, 115, 22, 0.15);
+      color: #fdba74;
+      border-color: rgba(249, 115, 22, 0.3);
+    }
+
+    /* BỐ CỤC CHÍNH */
+    .app-layout {
+      display: flex;
+      gap: 20px;
+      padding: 16px;
+      max-width: 1800px;
+      margin: 0 auto;
+      align-items: flex-start;
+    }
+
+    .main-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* SIDEBAR BÊN PHẢI */
+    .sidebar-right {
+      width: 280px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      position: sticky;
+      top: 75px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: var(--shadow);
+      flex-shrink: 0;
+    }
+
+    .sidebar-title { font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .sidebar-search { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-inner); color: var(--text); font-size: 13px; outline: none; }
+    
+    .sidebar-list { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; overflow-x: hidden; }
+    .sidebar-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-inner); font-size: 12px; cursor: pointer; transition: background 0.2s, transform 0.1s; overflow: hidden; white-space: nowrap; }
+    .sidebar-item:hover { background: rgba(37, 99, 235, 0.15); border-color: var(--primary); transform: translateX(2px); }
+
+    /* HERO BANNER */
+    .hero-banner {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow);
+      flex-wrap: wrap;
+    }
+
+    .hero-info h2 { margin: 0 0 4px; font-size: 18px; font-weight: 800; }
+    .hero-info p { margin: 0; color: var(--sub); font-size: 12px; }
+
+    .batch-actions-global {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn-global-cmd {
+      border: none;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    .btn-global-on { background: linear-gradient(135deg, #10b981, #059669); }
+    .btn-global-off { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+    .hero-stats { display: flex; gap: 10px; }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 8px 14px;
+      text-align: center;
+      min-width: 85px;
+    }
+
+    .stat-value { font-size: 20px; font-weight: 800; color: var(--primary); }
+    .stat-label { font-size: 10px; color: var(--sub); margin-top: 2px; }
+
+    /* DÃY PHÒNG (ZONE) */
+    .zone-container { margin-bottom: 24px; }
+
+    .zone-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 16px;
+      margin-bottom: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .zone-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; cursor: pointer; }
+    .zone-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .btn-zone-cmd {
+      border: 1px solid var(--border);
+      background: var(--card-inner);
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-zone-cmd.on { color: #34d399; border-color: rgba(52,211,153,0.4); }
+    .btn-zone-cmd.off { color: #fca5a5; border-color: rgba(239,68,68,0.4); }
+
+    .btn-zone-action {
+      background: var(--card-inner);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-add-zone-room {
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* LƯỚI PHÒNG */
+    .room-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+      min-height: 80px;
+      padding: 4px;
+      border-radius: 16px;
+      border: 2px dashed transparent;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .room-grid.drag-over {
+      background-color: rgba(37, 99, 235, 0.1);
+      border-color: var(--primary);
+    }
+
+    /* THẺ PHÒNG & ANIMATION HIGHLIGHT */
+    @keyframes pulseGlow {
+      0% {
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.9), var(--shadow);
+        border-color: var(--primary);
+        transform: scale(1);
+      }
+      50% {
+        box-shadow: 0 0 25px 8px rgba(37, 99, 235, 0.6), var(--shadow);
+        border-color: var(--primary);
+        transform: scale(1.02);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0), var(--shadow);
+        border-color: var(--border);
+        transform: scale(1);
+      }
+    }
+
+    .room-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--shadow);
+      position: relative;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .room-card.highlight-anim {
+      animation: pulseGlow 1.6s ease-in-out;
+      border-color: var(--primary);
+    }
+
+    .room-card.dragging {
+      opacity: 0.4;
+      transform: scale(0.96);
+      border-color: var(--primary);
+    }
+
+    .card-top { display: flex; justify-content: space-between; align-items: center; }
+    .tag-group { display: flex; gap: 6px; align-items: center; }
+    
+    .checkbox-custom {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--primary);
+      margin-right: 4px;
+    }
+
+    .badge-num { background: #1e293b; color: #818cf8; padding: 3px 7px; border-radius: 6px; font-size: 11px; font-weight: 800; }
+    .badge-brand { background: #312e81; color: #a5b4fc; padding: 3px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .badge-power { padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    .badge-power.on { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .badge-power.off { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+
+    .btn-delete-card { background: transparent; border: none; color: var(--sub); font-size: 16px; padding: 4px; }
+
+    .drag-handle-hint {
+      font-size: 11px;
+      color: var(--sub);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      padding: 6px 10px;
+      background: var(--card-inner);
+      border-radius: 8px;
+    }
+
+    .drag-grab-btn {
+      cursor: grab;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .zone-select-mobile {
+      background: var(--card);
+      color: var(--primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 6px;
+      outline: none;
+    }
+
+    .room-name-text { font-size: 16px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+    .power-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .btn-power {
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-power.btn-on { background: linear-gradient(135deg, #10b981, #059669); }
+    .btn-power.btn-off { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+    .temp-control-wrap {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-temp {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      border: none;
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .temp-display { text-align: center; }
+    .current-temp { font-size: 26px; font-weight: 800; line-height: 1; color: var(--text); }
+    .temp-subtext { font-size: 10px; color: var(--sub); margin-top: 2px; }
+
+    .extra-feature-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .btn-feature {
+      border: 1px solid var(--border);
+      background: var(--card-inner);
+      color: var(--sub);
+      border-radius: 8px;
+      padding: 9px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .btn-feature.active-swing { background: #ea580c; color: #ffffff; border-color: #ea580c; }
+    .btn-feature.active-powerful { background: #2563eb; color: #ffffff; border-color: #2563eb; }
+
+    .card-footer-info {
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--sub);
+    }
+
+    /* MODAL & TOAST */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); z-index: 200; align-items: center; justify-content: center; padding: 16px; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { width: min(440px, 100%); background: var(--card); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--border); }
+    .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 45vh; overflow-y: auto; }
+    .history-item { background: var(--card-inner); border: 1px solid var(--border); padding: 8px 10px; border-radius: 8px; display: flex; justify-content: space-between; font-size: 12px; }
+    .rename-input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-inner); color: var(--text); outline: none; font-size: 14px; }
+
+    #toastContainer { position: fixed; bottom: 20px; right: 20px; z-index: 300; display: flex; flex-direction: column; gap: 8px; max-width: calc(100vw - 40px); }
+    .toast { background: #1e293b; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+
+    @media (max-width: 900px) {
+      .header-container { flex-wrap: wrap; padding: 10px 14px; }
+      .header-actions { width: 100%; justify-content: space-between; overflow-x: auto; padding-top: 4px; }
+      .header-btn, .badge-mqtt { padding: 6px 10px; font-size: 11px; }
+
+      .app-layout { flex-direction: column; padding: 12px; gap: 16px; }
+      
+      .sidebar-right { width: 100%; position: static; padding: 12px; }
+      .sidebar-list { max-height: 180px; }
+
+      .hero-banner { flex-direction: column; align-items: stretch; text-align: center; gap: 12px; padding: 14px; }
+      .batch-actions-global { justify-content: center; }
+      .hero-stats { justify-content: center; }
+
+      .room-grid { grid-template-columns: 1fr; gap: 12px; }
+      .zone-header { gap: 10px; flex-direction: column; align-items: stretch; }
+      .zone-actions { width: 100%; justify-content: space-between; }
+    }
+
+    @media (max-width: 480px) {
+      h1 { font-size: 13px; }
+      .subtitle { font-size: 10px; }
+      .btn-power { font-size: 12px; padding: 12px; }
+      .btn-temp { width: 48px; height: 48px; font-size: 24px; }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div class="header-container">
+    <div class="logo-section">
+      <div class="logo-icon">❄️</div>
+      <div>
+        <h1>QUẢN LÝ MÁY LẠNH</h1>
+        <div class="subtitle">Funiki Smart Control & Sync</div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="badge-mqtt connecting" id="mqttBadge">🟡 Kết nối...</div>
+      <button class="header-btn" onclick="openHistoryModal()">📜 Lịch sử</button>
+      <button class="header-btn" onclick="syncOnlineState(true)">☁️ Đồng bộ ngay</button>
+      <button class="header-btn" onclick="reconnectMQTT()">🔄 Reconnect</button>
+      <button class="header-btn" onclick="toggleTheme()">🌓 Giao diện</button>
+    </div>
+  </div>
+</header>
+
+<div class="app-layout">
+  
+  <main class="main-content">
+    
+    <div class="hero-banner">
+      <div class="hero-info">
+        <h2>Bảng Điều Khiển Tổng Quan</h2>
+        <p>Giám sát & Đồng bộ hóa cấu hình thời gian thực (Real-time Online)</p>
+      </div>
+
+      <div class="batch-actions-global">
+        <!-- Đã thêm nút Tạo dãy mới ở đây -->
+        <button class="header-btn" style="background: var(--primary); color: #fff; border: none;" onclick="addNewZone()">➕ Tạo dãy mới</button>
+        <button class="header-btn" onclick="toggleSelectAll()">☑️ Chọn tất cả</button>
+        <button class="btn-global-cmd btn-global-on" onclick="toggleSelectedPower('on')">⚡ Bật mục đã chọn</button>
+        <button class="btn-global-cmd btn-global-off" onclick="toggleSelectedPower('off')">🛑 Tắt mục đã chọn</button>
+        
+        <button class="btn-global-cmd" style="background: var(--card-inner); border: 1px solid var(--border); color: var(--text);" onclick="toggleAllPower('on')" title="Bật toàn bộ hệ thống">⚡ Bật tất cả</button>
+        <button class="btn-global-cmd" style="background: var(--card-inner); border: 1px solid var(--border); color: var(--text);" onclick="toggleAllPower('off')" title="Tắt toàn bộ hệ thống">🛑 Tắt tất cả</button>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat-box">
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">Tổng phòng</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="statActive" style="color:#10b981;">0</div>
+          <div class="stat-label">Đang bật</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="zonesWrapper"></div>
+
+  </main>
+
+  <aside class="sidebar-right">
+    <div class="sidebar-title">
+      <span>🔍 Tìm nhanh phòng</span>
+      <span class="badge-mqtt" style="font-size:10px; padding:2px 8px;" id="sidebarCount">0</span>
+    </div>
+    <input type="text" id="sidebarSearch" class="sidebar-search" placeholder="Nhập tên phòng..." oninput="renderSidebar()">
+    <div class="sidebar-list" id="sidebarList"></div>
+  </aside>
+
+</div>
+
+<div id="toastContainer"></div>
+
+<!-- MODAL LỊCH SỬ -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal-box">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0; font-size: 16px;">📜 Lịch sử Hoạt động</h3>
+      <button class="header-btn" onclick="closeModal('historyModal')">✖</button>
+    </div>
+    <div class="history-list" id="historyListContent"></div>
+    <button class="header-btn" style="color:var(--red); border-color:var(--red); justify-content:center;" onclick="clearLogs()">🗑 Xóa lịch sử</button>
+  </div>
+</div>
+
+<!-- MODAL ĐỔI TÊN PHÒNG HOẶC DÃY -->
+<div class="modal-overlay" id="customRenameModal">
+  <div class="modal-box">
+    <h3 style="margin:0; font-size: 16px;" id="renameModalTitle">✏️ Đổi tên</h3>
+    <input type="text" id="renameModalInput" class="rename-input" placeholder="Nhập tên mới..." />
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="header-btn" onclick="closeModal('customRenameModal')">Hủy</button>
+      <button class="header-btn" style="background:var(--primary); color:#fff;" onclick="submitRename()">Lưu thay đổi</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL XÁC NHẬN XÓA (PHÒNG / DÃY) -->
+<div class="modal-overlay" id="deleteConfirmModal">
+  <div class="modal-box">
+    <h3 style="margin:0; font-size: 16px; color: var(--red);">⚠️ Xác nhận xóa</h3>
+    <p id="deleteConfirmText" style="font-size: 13px; color: var(--text); margin: 5px 0;">Bạn có chắc chắn muốn xóa?</p>
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top: 10px;">
+      <button class="header-btn" onclick="closeModal('deleteConfirmModal')">Hủy bỏ</button>
+      <button class="header-btn" style="background:var(--red); color:#fff; border:none;" onclick="confirmDelete()">Xác nhận xóa</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const LOCAL_ZONES_KEY = 'funiki_zones_v4';
+  const LOCAL_ROOMS_KEY = 'funiki_rooms_v4';
+  const LOCAL_STATUS_KEY = 'funiki_status_v4';
+  const LOCAL_LOGS_KEY = 'funiki_logs_v4';
+
+  const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+  const CLIENT_ID = 'web_client_' + Math.random().toString(36).substring(2, 9);
+  
+  const SYNC_TOPIC = 'truong/funiki/config/sync';
+
+  let mqttClient = null;
+  let isReceivingSync = false; 
+  let deleteTargetType = null; 
+  let deleteTargetId = null;
+
+  /* NẠP DỮ LIỆU BAN ĐẦU */
+  let zones = [];
+  try { zones = JSON.parse(localStorage.getItem(LOCAL_ZONES_KEY)); } catch(e){}
+  if (!zones || !Array.isArray(zones)) {
+    zones = [
+      { id: 'zone_a', name: 'Dãy 9' },
+      { id: 'zone_b', name: 'Dãy 10' }
+    ];
+  }
+
+  let rooms = null;
+  try { rooms = JSON.parse(localStorage.getItem(LOCAL_ROOMS_KEY)); } catch(e){}
+  if (!rooms || typeof rooms !== 'object' || Object.keys(rooms).length === 0) {
+    rooms = {
+      room_1: { key: 'room_1', roomNumber: 1, zoneId: 'zone_a', name: '9/1-6/1', controlTopic: 'truong/funiki/1/control', statusTopic: 'truong/funiki/1/status' },
+      room_2: { key: 'room_2', roomNumber: 2, zoneId: 'zone_a', name: '9/2-6/2', controlTopic: 'truong/funiki/2/control', statusTopic: 'truong/funiki/2/status' },
+      room_3: { key: 'room_3', roomNumber: 3, zoneId: 'zone_b', name: '10/1-7/1', controlTopic: 'truong/funiki/3/control', statusTopic: 'truong/funiki/3/status' }
+    };
+  }
+
+  let roomStatuses = null;
+  try { roomStatuses = JSON.parse(localStorage.getItem(LOCAL_STATUS_KEY)); } catch(e){}
+  if (!roomStatuses || typeof roomStatuses !== 'object') {
+    roomStatuses = {
+      room_1: { power: 'off', temp: 26, swing: false, quickCool: false, lastTime: 'Chưa có' },
+      room_2: { power: 'off', temp: 26, swing: false, quickCool: false, lastTime: 'Chưa có' },
+      room_3: { power: 'off', temp: 26, swing: false, quickCool: false, lastTime: 'Chưa có' }
+    };
+  }
+
+  let activityLogs = JSON.parse(localStorage.getItem(LOCAL_LOGS_KEY)) || [];
+  let renameContext = { type: null, targetId: null };
+
+  function $(id) { return document.getElementById(id); }
+
+  function showToast(msg) {
+    const c = $('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  function addLog(text) {
+    const time = new Date().toLocaleTimeString('vi-VN');
+    activityLogs.unshift({ time, text });
+    if (activityLogs.length > 50) activityLogs.pop();
+    localStorage.setItem(LOCAL_LOGS_KEY, JSON.stringify(activityLogs));
+  }
+
+  function saveState(skipPublish = false) {
+    localStorage.setItem(LOCAL_ZONES_KEY, JSON.stringify(zones));
+    localStorage.setItem(LOCAL_ROOMS_KEY, JSON.stringify(rooms));
+    localStorage.setItem(LOCAL_STATUS_KEY, JSON.stringify(roomStatuses));
+    renderAll();
+
+    if (!skipPublish && mqttClient && mqttClient.connected && !isReceivingSync) {
+      syncOnlineState();
+    }
+  }
+
+  function syncOnlineState(manual = false) {
+    if (!mqttClient || !mqttClient.connected) {
+      if (manual) showToast('⚠️ Chưa kết nối mạng trực tuyến!');
+      return;
+    }
+
+    const payload = {
+      senderId: CLIENT_ID,
+      timestamp: Date.now(),
+      zones: zones,
+      rooms: rooms,
+      roomStatuses: roomStatuses
+    };
+
+    mqttClient.publish(SYNC_TOPIC, JSON.stringify(payload), { retain: true });
+    if (manual) showToast('☁️ Đã đẩy dữ liệu đồng bộ lên hệ thống!');
+  }
+
+  function initMQTT() {
+    updateMQTTBadge('connecting');
+    mqttClient = mqtt.connect(MQTT_BROKER, {
+      clientId: CLIENT_ID,
+      clean: true,
+      connectTimeout: 5000,
+      reconnectPeriod: 3000
+    });
+
+    mqttClient.on('connect', () => {
+      updateMQTTBadge('connected');
+      mqttClient.subscribe(SYNC_TOPIC);
+      Object.values(rooms).forEach(r => {
+        mqttClient.subscribe(r.statusTopic);
+      });
+    });
+
+    mqttClient.on('message', (topic, message) => {
+      const payloadStr = message.toString();
+
+      if (topic === SYNC_TOPIC) {
+        try {
+          const syncData = JSON.parse(payloadStr);
+          if (syncData && syncData.senderId !== CLIENT_ID) {
+            isReceivingSync = true;
+            zones = syncData.zones || zones;
+            rooms = syncData.rooms || rooms;
+
+            Object.values(rooms).forEach(r => {
+              if (mqttClient) mqttClient.subscribe(r.statusTopic);
+            });
+
+            if (syncData.roomStatuses) {
+              Object.keys(syncData.roomStatuses).forEach(k => {
+                if (!roomStatuses[k]) roomStatuses[k] = syncData.roomStatuses[k];
+              });
+            }
+
+            saveState(true);
+            showToast('🔄 Đã đồng bộ dữ liệu từ thiết bị khác!');
+            isReceivingSync = false;
+          }
+        } catch (e) { isReceivingSync = false; }
+        return;
+      }
+
+      const room = Object.values(rooms).find(r => r.statusTopic === topic);
+      if (room) {
+        try {
+          const data = JSON.parse(payloadStr);
+          roomStatuses[room.key] = {
+            ...roomStatuses[room.key],
+            power: data.power || roomStatuses[room.key].power,
+            temp: data.temp !== undefined ? data.temp : roomStatuses[room.key].temp,
+            swing: data.swing ? (data.swing === 'toggle' ? !roomStatuses[room.key].swing : data.swing === 'on') : roomStatuses[room.key].swing,
+            lastTime: new Date().toLocaleTimeString('vi-VN')
+          };
+          saveState(true);
+        } catch (e) {}
+      }
+    });
+
+    mqttClient.on('offline', () => updateMQTTBadge('offline'));
+    mqttClient.on('error', () => updateMQTTBadge('offline'));
+  }
+
+  function reconnectMQTT() {
+    if (mqttClient) mqttClient.end(true);
+    initMQTT();
+  }
+
+  function updateMQTTBadge(status) {
+    const b = $('mqttBadge');
+    if (status === 'connected') {
+      b.className = 'badge-mqtt';
+      b.textContent = '🟢 Đã kết nối Sync';
+    } else if (status === 'connecting') {
+      b.className = 'badge-mqtt connecting';
+      b.textContent = '🟡 Đang kết nối...';
+    } else {
+      b.className = 'badge-mqtt offline';
+      b.textContent = '🔴 Mất kết nối';
+    }
+  }
+
+  function sendCommand(key, cmd) {
+    if (!mqttClient || !mqttClient.connected) {
+      showToast('⚠️ Chưa kết nối MQTT!');
+      return;
+    }
+    const r = rooms[key];
+    mqttClient.publish(r.controlTopic, cmd);
+  }
+
+  function sendPower(key, state) {
+    const r = rooms[key];
+    roomStatuses[key].power = state;
+    sendCommand(key, state.toUpperCase());
+    addLog(`Bật/Tắt [${r.name}]: ${state.toUpperCase()}`);
+    saveState();
+  }
+
+  function toggleSelectedPower(state) {
+    const checkboxes = document.querySelectorAll('.room-checkbox:checked');
+    if (checkboxes.length === 0) {
+      showToast('⚠️ Vui lòng chọn (tick) ít nhất 1 phòng!');
+      return;
+    }
+    
+    let count = 0;
+    checkboxes.forEach(cb => {
+      const key = cb.value;
+      if (rooms[key]) {
+        roomStatuses[key].power = state;
+        sendCommand(key, state.toUpperCase());
+        count++;
+      }
+      cb.checked = false;
+    });
+
+    const actionText = state === 'on' ? 'BẬT' : 'TẮT';
+    addLog(`Đã ${actionText} ${count} phòng được chọn`);
+    showToast(`⚡ Đã ${actionText} ${count} phòng được chọn!`);
+    saveState();
+  }
+
+  function toggleSelectAll() {
+    const checkboxes = document.querySelectorAll('.room-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+  }
+
+  function toggleAllPower(state) {
+    const keys = Object.keys(rooms);
+    if (keys.length === 0) return;
+
+    keys.forEach(key => {
+      roomStatuses[key].power = state;
+      sendCommand(key, state.toUpperCase());
+    });
+
+    const actionText = state === 'on' ? 'BẬT' : 'TẮT';
+    addLog(`Đã ${actionText} tất cả ${keys.length} phòng trong hệ thống`);
+    showToast(`⚡ Đã ${actionText} tất cả phòng!`);
+    saveState();
+  }
+
+  function toggleZonePower(zoneId, state) {
+    const zoneObj = zones.find(z => z.id === zoneId);
+    const zoneRooms = Object.values(rooms).filter(r => r.zoneId === zoneId);
+
+    if (zoneRooms.length === 0) {
+      showToast('Dãy này chưa có phòng nào!');
+      return;
+    }
+
+    zoneRooms.forEach(r => {
+      roomStatuses[r.key].power = state;
+      sendCommand(r.key, state.toUpperCase());
+    });
+
+    const actionText = state === 'on' ? 'BẬT' : 'TẮT';
+    const zoneName = zoneObj ? zoneObj.name : 'Dãy';
+    addLog(`Đã ${actionText} tất cả phòng thuộc [${zoneName}]`);
+    showToast(`🏢 Đã ${actionText} ${zoneRooms.length} phòng của ${zoneName}`);
+    saveState();
+  }
+
+  function changeTemp(key, delta) {
+    const r = rooms[key];
+    let t = roomStatuses[key].temp || 26;
+    t = Math.min(30, Math.max(17, t + delta));
+    roomStatuses[key].temp = t;
+    roomStatuses[key].power = 'on';
+    sendCommand(key, String(t));
+    addLog(`Cài nhiệt độ [${r.name}]: ${t}°C`);
+    saveState();
+  }
+
+  function toggleSwing(key) {
+    const r = rooms[key];
+    roomStatuses[key].swing = !roomStatuses[key].swing;
+    sendCommand(key, 'SWING');
+    addLog(`Đảo gió [${r.name}]`);
+    saveState();
+  }
+
+  function toggleQuickCool(key) {
+    const r = rooms[key];
+    roomStatuses[key].quickCool = !roomStatuses[key].quickCool;
+    roomStatuses[key].temp = 17;
+    roomStatuses[key].power = 'on';
+    sendCommand(key, 'QUICKCOOL');
+    addLog(`Làm lạnh nhanh [${r.name}]`);
+    saveState();
+  }
+
+  function addNewZone() {
+    const zoneId = 'zone_' + Math.random().toString(36).substring(2, 7);
+    const zoneName = 'Dãy ' + (zones.length + 1);
+    zones.push({ id: zoneId, name: zoneName });
+    addLog(`Tạo dãy mới: ${zoneName}`);
+    saveState();
+    showToast(`✨ Đã tạo ${zoneName} thành công!`);
+    openRenameModal('zone', zoneId); // Tự mở bảng đổi tên để Sang tùy chỉnh ngay
+  }
+
+  function generateNextRoomName(zoneId) {
+    const zoneObj = zones.find(z => z.id === zoneId);
+    const zoneRooms = Object.values(rooms).filter(r => r.zoneId === zoneId);
+
+    if (zoneRooms.length === 0) {
+      const numMatch = zoneObj ? zoneObj.name.match(/\d+/) : null;
+      const prefix = numMatch ? numMatch[0] : '1';
+      return `${prefix}/1-6/1`;
+    }
+
+    const lastRoom = zoneRooms[zoneRooms.length - 1];
+    const lastName = lastRoom.name;
+
+    const matchDual = lastName.match(/^(.*?)(\d+)\/(\d+)-(\d+)\/(\d+)$/);
+    if (matchDual) {
+      const prefix = matchDual[1];
+      const num1 = matchDual[2];
+      const sub1 = parseInt(matchDual[3], 10) + 1;
+      const num2 = matchDual[4];
+      const sub2 = parseInt(matchDual[5], 10) + 1;
+      return `${prefix}${num1}/${sub1}-${num2}/${sub2}`;
+    }
+
+    const matchSingle = lastName.match(/^(.*?)(\d+)\/(\d+)$/);
+    if (matchSingle) {
+      const prefix = matchSingle[1];
+      const mainNum = matchSingle[2];
+      const subNum = parseInt(matchSingle[3], 10) + 1;
+      return `${prefix}${mainNum}/${subNum}`;
+    }
+
+    const matchNum = lastName.match(/^(.*?)(\d+)$/);
+    if (matchNum) {
+      const prefix = matchNum[1];
+      const num = parseInt(matchNum[2], 10) + 1;
+      return `${prefix}${num}`;
+    }
+
+    return `${lastName} ${zoneRooms.length + 1}`;
+  }
+
+  function addRoomToZone(zoneId) {
+    const nums = Object.values(rooms).map(r => r.roomNumber);
+    let nextNum = 1;
+    while (nums.includes(nextNum)) nextNum++;
+
+    const newRoomName = generateNextRoomName(zoneId);
+
+    const key = 'room_' + nextNum;
+    rooms[key] = {
+      key,
+      roomNumber: nextNum,
+      zoneId: zoneId,
+      name: newRoomName,
+      controlTopic: `truong/funiki/${nextNum}/control`,
+      statusTopic: `truong/funiki/${nextNum}/status`
+    };
+    roomStatuses[key] = { power: 'off', temp: 26, swing: false, quickCool: false, lastTime: 'Vừa tạo' };
+
+    if (mqttClient && mqttClient.connected) {
+      mqttClient.subscribe(rooms[key].statusTopic);
+    }
+    addLog(`Thêm phòng mới: ${newRoomName}`);
+    saveState();
+  }
+
+  function deleteRoom(key) {
+    deleteTargetType = 'room';
+    deleteTargetId = key;
+    $('deleteConfirmText').innerHTML = `Bạn có chắc chắn muốn xóa phòng <b>[${rooms[key].name}]</b> không?`;
+    $('deleteConfirmModal').classList.add('open');
+  }
+
+  function deleteZone(zoneId) {
+    deleteTargetType = 'zone';
+    deleteTargetId = zoneId;
+    $('deleteConfirmText').textContent = 'Bạn có chắc chắn muốn xoá dãy?';
+    $('deleteConfirmModal').classList.add('open');
+  }
+
+  function confirmDelete() {
+    if (!deleteTargetId) return;
+
+    if (deleteTargetType === 'room') {
+      const key = deleteTargetId;
+      if (Object.keys(rooms).length <= 1) {
+        showToast('Cần duy trì ít nhất 1 phòng!');
+        closeModal('deleteConfirmModal');
+        return;
+      }
+      addLog(`Đã xóa: ${rooms[key].name}`);
+      delete rooms[key];
+      delete roomStatuses[key];
+    } else if (deleteTargetType === 'zone') {
+      const zoneId = deleteTargetId;
+      const zone = zones.find(z => z.id === zoneId);
+      
+      Object.keys(rooms).forEach(k => {
+        if (rooms[k].zoneId === zoneId) {
+          delete rooms[k];
+          delete roomStatuses[k];
+        }
+      });
+
+      zones = zones.filter(z => z.id !== zoneId);
+      addLog(`Đã xóa dãy: ${zone ? zone.name : zoneId}`);
+      showToast('🗑️ Đã xóa dãy thành công!');
+    }
+
+    saveState();
+    closeModal('deleteConfirmModal');
+    deleteTargetId = null;
+    deleteTargetType = null;
+  }
+
+  function moveRoomZone(roomKey, newZoneId) {
+    if (!rooms[roomKey] || rooms[roomKey].zoneId === newZoneId) return;
+    const oldZoneObj = zones.find(z => z.id === rooms[roomKey].zoneId);
+    const newZoneObj = zones.find(z => z.id === newZoneId);
+
+    rooms[roomKey].zoneId = newZoneId;
+    addLog(`Chuyển [${rooms[roomKey].name}] từ ${oldZoneObj.name} ➔ ${newZoneObj.name}`);
+    showToast(`🚚 Đã chuyển ${rooms[roomKey].name} sang ${newZoneObj.name}`);
+    saveState();
+  }
+
+  function openRenameModal(type, id) {
+    renameContext = { type, targetId: id };
+    if (type === 'room') {
+      $('renameModalTitle').textContent = '✏️ Đổi tên phòng';
+      $('renameModalInput').value = rooms[id].name;
+    } else if (type === 'zone') {
+      const zone = zones.find(z => z.id === id);
+      $('renameModalTitle').textContent = '✏️ Đổi tên dãy';
+      $('renameModalInput').value = zone ? zone.name : '';
+    }
+    $('customRenameModal').classList.add('open');
+  }
+
+  function submitRename() {
+    const val = $('renameModalInput').value.trim();
+    if (!val) return;
+
+    if (renameContext.type === 'room' && renameContext.targetId) {
+      const oldName = rooms[renameContext.targetId].name;
+      rooms[renameContext.targetId].name = val;
+      addLog(`Đổi tên phòng: [${oldName}] ➔ [${val}]`);
+    } else if (renameContext.type === 'zone' && renameContext.targetId) {
+      const zone = zones.find(z => z.id === renameContext.targetId);
+      if (zone) {
+        const oldName = zone.name;
+        zone.name = val;
+        addLog(`Đổi tên dãy: [${oldName}] ➔ [${val}]`);
+      }
+    }
+
+    saveState();
+    closeModal('customRenameModal');
+  }
+
+  function focusAndHighlightRoom(key) {
+    const card = $('card_' + key);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.remove('highlight-anim');
+      void card.offsetWidth;
+      card.classList.add('highlight-anim');
+    }
+  }
+
+  function handleDragStart(e) {
+    const card = e.currentTarget.closest('.room-card');
+    if (!card) return;
+    e.dataTransfer.setData('text/plain', card.id.replace('card_', ''));
+    card.classList.add('dragging');
+  }
+
+  function handleDragEnd(e) {
+    const card = e.currentTarget.closest('.room-card');
+    if (card) card.classList.remove('dragging');
+    document.querySelectorAll('.room-grid').forEach(grid => grid.classList.remove('drag-over'));
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+  }
+
+  function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    const grid = e.currentTarget;
+    grid.classList.remove('drag-over');
+    const roomKey = e.dataTransfer.getData('text/plain');
+    const targetZoneId = grid.dataset.zoneId;
+
+    if (roomKey && rooms[roomKey]) {
+      moveRoomZone(roomKey, targetZoneId);
+    }
+  }
+
+  function renderAll() {
+    const list = Object.values(rooms);
+
+    $('statTotal').textContent = list.length;
+    const activeCount = Object.values(roomStatuses).filter(s => s.power === 'on').length;
+    $('statActive').textContent = activeCount;
+
+    const wrapper = $('zonesWrapper');
+
+    if (!zones || zones.length === 0) {
+      wrapper.innerHTML = `
+        <div style="text-align: center; padding: 50px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow);">
+          <div style="font-size: 52px; margin-bottom: 12px;">🏫</div>
+          <h3 style="margin: 0 0 8px; font-size: 18px; font-weight: 800;">Chưa có dãy phòng nào</h3>
+          <p style="color: var(--sub); font-size: 13px; margin: 0 0 20px; max-width: 520px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+            Hãy bắt đầu tạo dãy đầu tiên để có thể điều khiển phòng học từ xa thông qua web này nhé!
+          </p>
+          <button class="header-btn" style="background: var(--primary); color: #fff; margin: 0 auto; border: none; padding: 10px 20px; font-size: 13px; font-weight: 700; border-radius: 10px;" onclick="addNewZone()">➕ Tạo dãy mới</button>
+        </div>
+      `;
+      renderSidebar();
+      return;
+    }
+
+    wrapper.innerHTML = zones.map(zone => {
+      const zoneRooms = list.filter(r => r.zoneId === zone.id);
+      
+      const cardsHtml = zoneRooms.map(r => {
+        const st = roomStatuses[r.key] || { power: 'off', temp: 26 };
+        const isOn = st.power === 'on';
+
+        const zoneOptions = zones.map(z => `<option value="${z.id}" ${z.id === r.zoneId ? 'selected' : ''}>${z.name}</option>`).join('');
+
+        return `
+          <div class="room-card" id="card_${r.key}">
+            <div class="card-top">
+              <div class="tag-group">
+                <input type="checkbox" class="room-checkbox checkbox-custom" value="${r.key}" title="Chọn phòng này">
+                <span class="badge-num">#${r.roomNumber}</span>
+                <span class="badge-brand">Funiki</span>
+                <span class="badge-power ${isOn ? 'on' : 'off'}">${isOn ? 'Bật' : 'Tắt'}</span>
+              </div>
+              <button class="btn-delete-card" onclick="deleteRoom('${r.key}')" title="Xóa phòng">🗑️</button>
+            </div>
+
+            <div class="drag-handle-hint">
+              <span class="drag-grab-btn" draggable="true" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">⣿ Kéo thả</span>
+              <select class="zone-select-mobile" onchange="moveRoomZone('${r.key}', this.value)">
+                ${zoneOptions}
+              </select>
+            </div>
+
+            <div class="room-name-text" onclick="openRenameModal('room', '${r.key}')">✏️ ${r.name}</div>
+
+            <div class="power-buttons">
+              <button class="btn-power btn-on" onclick="sendPower('${r.key}','on')">⚡ Bật</button>
+              <button class="btn-power btn-off" onclick="sendPower('${r.key}','off')">🛑 Tắt</button>
+            </div>
+
+            <div class="temp-control-wrap">
+              <button class="btn-temp" onclick="changeTemp('${r.key}', -1)">-</button>
+              <div class="temp-display">
+                <div class="current-temp">${st.temp ? st.temp + '°C' : '--°C'}</div>
+                <div class="temp-subtext">Cài đặt</div>
+              </div>
+              <button class="btn-temp" onclick="changeTemp('${r.key}', 1)">+</button>
+            </div>
+
+            <div class="extra-feature-buttons">
+              <button class="btn-feature ${st.swing ? 'active-swing' : ''}" onclick="toggleSwing('${r.key}')">🌪️ Đảo gió</button>
+              <button class="btn-feature ${st.quickCool ? 'active-powerful' : ''}" onclick="toggleQuickCool('${r.key}')">⚡ Lạnh nhanh</button>
+            </div>
+
+            <div class="card-footer-info">
+              <span>Topic: ${r.statusTopic}</span>
+              <span>${st.lastTime || ''}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="zone-container">
+          <div class="zone-header">
+            <div class="zone-title" onclick="openRenameModal('zone', '${zone.id}')" title="Bấm để đổi tên dãy">
+              <span>🏢 ${zone.name}</span>
+              <span class="subtitle">(${zoneRooms.length} phòng)</span>
+            </div>
+            
+            <div class="zone-actions">
+              <button class="btn-zone-cmd on" onclick="toggleZonePower('${zone.id}', 'on')">⚡ Bật dãy</button>
+              <button class="btn-zone-cmd off" onclick="toggleZonePower('${zone.id}', 'off')">🛑 Tắt dãy</button>
+              <button class="btn-zone-action" onclick="openRenameModal('zone', '${zone.id}')">✏️ Đổi tên</button>
+              <button class="btn-zone-action" style="color:var(--red); border-color:rgba(239,68,68,0.3);" onclick="deleteZone('${zone.id}')">🗑️ Xóa dãy</button>
+              <button class="btn-add-zone-room" onclick="addRoomToZone('${zone.id}')">➕ Thêm phòng</button>
+            </div>
+          </div>
+          
+          <div class="room-grid" data-zone-id="${zone.id}" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+            ${cardsHtml || '<div style="color:var(--sub); font-size:13px; padding:16px 0; text-align:center;">Chưa có phòng nào trong dãy này</div>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    renderSidebar();
+  }
+
+  function renderSidebar() {
+    const query = $('sidebarSearch').value.toLowerCase();
+    const filtered = Object.values(rooms).filter(r => r.name.toLowerCase().includes(query));
+    $('sidebarCount').textContent = filtered.length;
+
+    $('sidebarList').innerHTML = filtered.map(r => `
+      <div class="sidebar-item" onclick="focusAndHighlightRoom('${r.key}')">
+        <span><b>#${r.roomNumber}</b> ${r.name}</span>
+        <span style="color:var(--sub);">${(roomStatuses[r.key]||{}).temp||'26'}°C</span>
+      </div>
+    `).join('');
+  }
+
+  function openHistoryModal() {
+    $('historyListContent').innerHTML = activityLogs.map(l => `
+      <div class="history-item">
+        <span>${l.text}</span>
+        <span style="color:var(--sub);">${l.time}</span>
+      </div>
+    `).join('');
+    $('historyModal').classList.add('open');
+  }
+
+  function clearLogs() {
+    activityLogs = [];
+    localStorage.removeItem(LOCAL_LOGS_KEY);
+    openHistoryModal();
+  }
+
+  function closeModal(id) {
+    $(id).classList.remove('open');
+  }
+
+  function toggleTheme() {
+    document.body.classList.toggle('light-theme');
+  }
+
+  renderAll();
+  initMQTT();
+</script>
+
+</body>
+</html>
