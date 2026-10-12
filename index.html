@@ -271,7 +271,7 @@
     .stat-value { font-size: 20px; font-weight: 800; color: var(--primary); }
     .stat-label { font-size: 10px; color: var(--hero-sub); margin-top: 2px; }
 
-    /* DÃY PHÒNG (ZONE) */
+    /* DÃY PHÒNG (ZONE) - THÊM TÍNH NĂNG STICKY TRƯỢT THEO MÀN HÌNH */
     .zone-container { margin-bottom: 24px; }
 
     .zone-header {
@@ -285,6 +285,11 @@
       margin-bottom: 12px;
       gap: 10px;
       flex-wrap: wrap;
+      position: sticky;
+      top: 65px; /* Dính ngay dưới thanh Header chính */
+      z-index: 90;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(8px);
     }
 
     .zone-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; cursor: pointer; transition: opacity 0.2s; }
@@ -598,7 +603,7 @@
       .hero-stats { justify-content: center; }
 
       .room-grid { grid-template-columns: 1fr; gap: 12px; }
-      .zone-header { gap: 10px; flex-direction: column; align-items: stretch; }
+      .zone-header { top: 115px; gap: 10px; flex-direction: column; align-items: stretch; }
       .zone-actions { width: 100%; justify-content: space-between; }
     }
 
@@ -732,8 +737,8 @@
 </div>
 
 <script>
-  // PHIÊN BẢN V18 - SMART QUEUE & STAGGERED DELAY
-  const APP_VERSION = 'v18_smart_queue';
+  // PHIÊN BẢN V19 - STICKY ZONE HEADER
+  const APP_VERSION = 'v19_sticky_zone_header';
   if (localStorage.getItem('funiki_app_version') !== APP_VERSION) {
     Object.keys(localStorage).forEach(k => {
       if (k.includes('funiki_')) {
@@ -743,15 +748,15 @@
     localStorage.setItem('funiki_app_version', APP_VERSION);
   }
 
-  const LOCAL_ZONES_KEY = 'funiki_zones_v18';
-  const LOCAL_ROOMS_KEY = 'funiki_rooms_v18';
-  const LOCAL_STATUS_KEY = 'funiki_status_v18';
-  const LOCAL_LOGS_KEY = 'funiki_logs_v18';
+  const LOCAL_ZONES_KEY = 'funiki_zones_v19';
+  const LOCAL_ROOMS_KEY = 'funiki_rooms_v19';
+  const LOCAL_STATUS_KEY = 'funiki_status_v19';
+  const LOCAL_LOGS_KEY = 'funiki_logs_v19';
 
   const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
   const CLIENT_ID = 'web_client_' + Math.random().toString(36).substring(2, 9);
   
-  const SYNC_TOPIC = 'truong/funiki/config/sync_v18';
+  const SYNC_TOPIC = 'truong/funiki/config/sync_v19';
 
   let mqttClient = null;
   let isReceivingSync = false; 
@@ -943,7 +948,6 @@
     saveState();
   }
 
-  /* --- CƠ CHẾ GỬI TUẦN TỰ (STAGGERED DELAY) CHỐNG TRÀN ESP8266 --- */
   function toggleSelectedPower(state) {
     const checkboxes = document.querySelectorAll('.room-checkbox:checked');
     if (checkboxes.length === 0) {
@@ -969,7 +973,7 @@
         if (cb) cb.checked = false;
 
         index++;
-        setTimeout(sendNext, 400); // Độ trễ 400ms giữa các máy giúp ESP8266 nhận lệnh mượt mà
+        setTimeout(sendNext, 400);
       } else {
         addLog(`Đã ${actionText} ${keys.length} phòng được chọn`);
         showToast(`⚡ Đã hoàn tất ${actionText} ${keys.length} phòng!`);
