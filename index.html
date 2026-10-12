@@ -562,7 +562,6 @@
       </div>
 
       <div class="batch-actions-global">
-        <!-- Đã thêm nút Tạo dãy mới ở đây -->
         <button class="header-btn" style="background: var(--primary); color: #fff; border: none;" onclick="addNewZone()">➕ Tạo dãy mới</button>
         <button class="header-btn" onclick="toggleSelectAll()">☑️ Chọn tất cả</button>
         <button class="btn-global-cmd btn-global-on" onclick="toggleSelectedPower('on')">⚡ Bật mục đã chọn</button>
@@ -866,16 +865,16 @@
   }
 
   function toggleAllPower(state) {
-    const keys = Object.keys(rooms);
-    if (keys.length === 0) return;
+    const validRooms = Object.values(rooms).filter(r => zones.some(z => z.id === r.zoneId));
+    if (validRooms.length === 0) return;
 
-    keys.forEach(key => {
-      roomStatuses[key].power = state;
-      sendCommand(key, state.toUpperCase());
+    validRooms.forEach(r => {
+      roomStatuses[r.key].power = state;
+      sendCommand(r.key, state.toUpperCase());
     });
 
     const actionText = state === 'on' ? 'BẬT' : 'TẮT';
-    addLog(`Đã ${actionText} tất cả ${keys.length} phòng trong hệ thống`);
+    addLog(`Đã ${actionText} tất cả ${validRooms.length} phòng trong hệ thống`);
     showToast(`⚡ Đã ${actionText} tất cả phòng!`);
     saveState();
   }
@@ -937,7 +936,7 @@
     addLog(`Tạo dãy mới: ${zoneName}`);
     saveState();
     showToast(`✨ Đã tạo ${zoneName} thành công!`);
-    openRenameModal('zone', zoneId); // Tự mở bảng đổi tên để Sang tùy chỉnh ngay
+    openRenameModal('zone', zoneId);
   }
 
   function generateNextRoomName(zoneId) {
@@ -1145,10 +1144,10 @@
   }
 
   function renderAll() {
-    const list = Object.values(rooms);
+    const validRooms = Object.values(rooms).filter(r => zones.some(z => z.id === r.zoneId));
 
-    $('statTotal').textContent = list.length;
-    const activeCount = Object.values(roomStatuses).filter(s => s.power === 'on').length;
+    $('statTotal').textContent = validRooms.length;
+    const activeCount = validRooms.filter(s => roomStatuses[s.key] && roomStatuses[s.key].power === 'on').length;
     $('statActive').textContent = activeCount;
 
     const wrapper = $('zonesWrapper');
@@ -1169,7 +1168,7 @@
     }
 
     wrapper.innerHTML = zones.map(zone => {
-      const zoneRooms = list.filter(r => r.zoneId === zone.id);
+      const zoneRooms = validRooms.filter(r => r.zoneId === zone.id);
       
       const cardsHtml = zoneRooms.map(r => {
         const st = roomStatuses[r.key] || { power: 'off', temp: 26 };
@@ -1253,8 +1252,14 @@
   }
 
   function renderSidebar() {
+    if (!zones || zones.length === 0) {
+      $('sidebarCount').textContent = '0';$('sidebarList').innerHTML = '<div style="color:var(--sub); font-size:12px; padding:12px; text-align:center;">Chưa có phòng nào</div>';
+      return;
+    }
+
+    const validRooms = Object.values(rooms).filter(r => zones.some(z => z.id === r.zoneId));
     const query = $('sidebarSearch').value.toLowerCase();
-    const filtered = Object.values(rooms).filter(r => r.name.toLowerCase().includes(query));
+    const filtered = validRooms.filter(r => r.name.toLowerCase().includes(query));
     $('sidebarCount').textContent = filtered.length;
 
     $('sidebarList').innerHTML = filtered.map(r => `
@@ -1262,7 +1267,7 @@
         <span><b>#${r.roomNumber}</b> ${r.name}</span>
         <span style="color:var(--sub);">${(roomStatuses[r.key]||{}).temp||'26'}°C</span>
       </div>
-    `).join('');
+    `).join('') || '<div style="color:var(--sub); font-size:12px; padding:12px; text-align:center;">Không tìm thấy phòng</div>';
   }
 
   function openHistoryModal() {
